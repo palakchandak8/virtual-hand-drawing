@@ -28,6 +28,10 @@ class DrawingCanvas:
         self.stroke_history = []
         self.current_stroke = []
         
+        # Text input
+        self.text_input = ""
+        self.text_position = None
+        
         # Color palette
         self.colors = {
             'g': (0, 255, 0),      # Green
@@ -82,14 +86,17 @@ class DrawingCanvas:
         self.last_point = point
     
     def _draw_circle(self, point):
-        """Draw with circular brush"""
-        cv2.circle(
-            self.canvas,
-            point,
-            self.brush_thickness,
-            self.current_color,
-            -1
-        )
+        """Draw with circular brush - INCREASED OPACITY"""
+        # Draw multiple overlapping circles for better visibility
+        for radius_offset in range(0, self.brush_thickness + 1, max(1, self.brush_thickness // 3)):
+            cv2.circle(
+                self.canvas,
+                point,
+                self.brush_thickness - radius_offset,
+                self.current_color,
+                -1
+            )
+        
         if self.last_point:
             self.current_stroke.append({
                 'point': point,
@@ -100,11 +107,12 @@ class DrawingCanvas:
         self.last_point = point
     
     def _draw_square(self, point):
-        """Draw with square brush"""
+        """Draw with square brush - INCREASED OPACITY"""
         half_size = self.brush_thickness
         top_left = (point[0] - half_size, point[1] - half_size)
         bottom_right = (point[0] + half_size, point[1] + half_size)
         
+        # Draw filled square
         cv2.rectangle(
             self.canvas,
             top_left,
@@ -112,6 +120,16 @@ class DrawingCanvas:
             self.current_color,
             -1
         )
+        
+        # Draw additional smaller square for better fill
+        cv2.rectangle(
+            self.canvas,
+            (point[0] - half_size//2, point[1] - half_size//2),
+            (point[0] + half_size//2, point[1] + half_size//2),
+            self.current_color,
+            -1
+        )
+        
         if self.last_point:
             self.current_stroke.append({
                 'point': point,
@@ -122,8 +140,8 @@ class DrawingCanvas:
         self.last_point = point
     
     def _draw_spray(self, point):
-        """Draw with spray paint effect"""
-        num_particles = 20
+        """Draw with spray paint effect - INCREASED DENSITY"""
+        num_particles = 40  # Increased from 20
         for _ in range(num_particles):
             offset_x = random.randint(-self.brush_thickness*2, self.brush_thickness*2)
             offset_y = random.randint(-self.brush_thickness*2, self.brush_thickness*2)
@@ -132,10 +150,12 @@ class DrawingCanvas:
             
             # Check bounds
             if 0 <= spray_point[0] < self.width and 0 <= spray_point[1] < self.height:
+                # Draw larger particles with varying sizes
+                particle_size = random.randint(1, 3)
                 cv2.circle(
                     self.canvas,
                     spray_point,
-                    1,
+                    particle_size,
                     self.current_color,
                     -1
                 )
@@ -149,23 +169,17 @@ class DrawingCanvas:
             })
         self.last_point = point
     
-    def erase(self, point):
-        """Erase at point"""
-        cv2.circle(
-            self.canvas,
-            point,
-            self.eraser_thickness,
-            (0, 0, 0),
-            -1
-        )
-        self.last_point = point
-    
-    def clear(self):
-        """Clear entire canvas"""
+    def erase_all(self):
+        """Erase entire canvas (fist gesture)"""
         self.canvas = np.zeros((self.height, self.width, 3), dtype=np.uint8)
         self.stroke_history = []
         self.current_stroke = []
         self.last_point = None
+        self.text_input = ""
+    
+    def clear(self):
+        """Clear entire canvas (same as erase_all, kept for compatibility)"""
+        self.erase_all()
     
     def undo(self):
         """Undo last stroke"""
@@ -187,13 +201,14 @@ class DrawingCanvas:
                         item['thickness']
                     )
                 elif item['shape'] == 'CIRCLE':
-                    cv2.circle(
-                        self.canvas,
-                        item['point'],
-                        item['thickness'],
-                        item['color'],
-                        -1
-                    )
+                    for radius_offset in range(0, item['thickness'] + 1, max(1, item['thickness'] // 3)):
+                        cv2.circle(
+                            self.canvas,
+                            item['point'],
+                            item['thickness'] - radius_offset,
+                            item['color'],
+                            -1
+                        )
                 elif item['shape'] == 'SQUARE':
                     half_size = item['thickness']
                     top_left = (item['point'][0] - half_size, item['point'][1] - half_size)
@@ -233,8 +248,26 @@ class DrawingCanvas:
         """Get current color name"""
         return self.color_names.get(self.current_color, 'Custom')
     
+    def add_text(self, text, position):
+        """Add text to canvas"""
+        if text and position:
+            cv2.putText(
+                self.canvas,
+                text,
+                position,
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1.0,
+                self.current_color,
+                2
+            )
+            self.text_input = ""
+    
     def save_canvas(self, output_dir="output"):
         """Save canvas to file"""
+        import os
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+            
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"{output_dir}/drawing_{timestamp}.png"
         cv2.imwrite(filename, self.canvas)

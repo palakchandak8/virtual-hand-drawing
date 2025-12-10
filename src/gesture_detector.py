@@ -55,7 +55,7 @@ class GestureDetector:
                 
         return fingers_up
     
-    def detect_gesture(self, fingers_up):
+    def detect_gesture(self, fingers_up, landmarks=None, frame_shape=None):
         """
         Detect gesture based on finger states
         Returns: gesture_name (str)
@@ -65,19 +65,54 @@ class GestureDetector:
         if finger_pattern in self.custom_gestures:
             return self.custom_gestures[finger_pattern]
         
-        # Default gestures
+        # UPDATED GESTURES
+        # Index finger only - DRAW (most important, check first)
         if fingers_up == [0, 1, 0, 0, 0]:
+            # Additional check: make sure thumb and index are NOT too close (not pinching)
+            if landmarks and frame_shape:
+                thumb_tip = landmarks[4]
+                index_tip = landmarks[8]
+                h, w, _ = frame_shape
+                thumb_x, thumb_y = int(thumb_tip.x * w), int(thumb_tip.y * h)
+                index_x, index_y = int(index_tip.x * w), int(index_tip.y * h)
+                distance = math.sqrt((thumb_x - index_x)**2 + (thumb_y - index_y)**2)
+                
+                # If distance is too small, it's likely a pinch, not draw
+                if distance < 40:
+                    return "NONE"
             return "DRAW"
+        
+        # Closed fist (all fingers down) - ERASE ALL
         elif fingers_up == [0, 0, 0, 0, 0]:
-            return "ERASE"
+            return "ERASE_ALL"
+        
+        # Open palm (all fingers up) - PAUSE/VERIFY
         elif fingers_up == [1, 1, 1, 1, 1]:
-            return "CLEAR"
+            return "PAUSE"
+        
+        # Two fingers (index + middle) - UNDO
         elif fingers_up == [0, 1, 1, 0, 0]:
             return "UNDO"
-        elif fingers_up == [1, 1, 0, 0, 0]:
-            return "PINCH"  # For thickness control
+        
+        # Three fingers (index + middle + ring) - CHANGE BRUSH
         elif fingers_up == [0, 1, 1, 1, 0]:
-            return "THREE_FINGERS"  # For brush shape change
+            return "THREE_FINGERS"
+        
+        # Thumb + Index (both up, others down) - PINCH for thickness
+        elif fingers_up == [1, 1, 0, 0, 0]:
+            if landmarks and frame_shape:
+                thumb_tip = landmarks[4]
+                index_tip = landmarks[8]
+                h, w, _ = frame_shape
+                thumb_x, thumb_y = int(thumb_tip.x * w), int(thumb_tip.y * h)
+                index_x, index_y = int(index_tip.x * w), int(index_tip.y * h)
+                distance = math.sqrt((thumb_x - index_x)**2 + (thumb_y - index_y)**2)
+                
+                # Only consider it a pinch if fingers are relatively close
+                if distance < 150:
+                    return "PINCH"
+            return "NONE"
+        
         else:
             return "NONE"
     
@@ -116,62 +151,6 @@ class GestureDetector:
     def add_custom_gesture(self, name, finger_pattern):
         """Add custom gesture template"""
         self.custom_gestures[tuple(finger_pattern)] = name
-    
-    def detect_sequence_gesture(self, current_pos):
-        """Detect sequence gestures like swirls, zigzags"""
-        self.gesture_sequence.append(current_pos)
-        
-        if len(self.gesture_sequence) < 5:
-            return "NONE"
-        
-        # Detect circular motion (swirl)
-        if self._is_circular_motion():
-            return "SWIRL"
-        
-        # Detect zigzag pattern
-        if self._is_zigzag_motion():
-            return "ZIGZAG"
-        
-        return "NONE"
-    
-    def _is_circular_motion(self):
-        """Check if recent positions form a circular pattern"""
-        if len(self.gesture_sequence) < 8:
-            return False
-        
-        points = list(self.gesture_sequence)[-8:]
-        
-        # Calculate center
-        center_x = sum(p[0] for p in points) / len(points)
-        center_y = sum(p[1] for p in points) / len(points)
-        
-        # Calculate angles
-        angles = []
-        for p in points:
-            angle = math.atan2(p[1] - center_y, p[0] - center_x)
-            angles.append(angle)
-        
-        # Check if angles span more than 270 degrees (3/4 circle)
-        angle_range = max(angles) - min(angles)
-        return angle_range > (3 * math.pi / 2)
-    
-    def _is_zigzag_motion(self):
-        """Check if recent positions form a zigzag pattern"""
-        if len(self.gesture_sequence) < 6:
-            return False
-        
-        points = list(self.gesture_sequence)[-6:]
-        
-        # Check for alternating direction changes
-        direction_changes = 0
-        for i in range(len(points) - 2):
-            dx1 = points[i+1][0] - points[i][0]
-            dx2 = points[i+2][0] - points[i+1][0]
-            
-            if dx1 * dx2 < 0:  # Sign change indicates direction change
-                direction_changes += 1
-        
-        return direction_changes >= 2
     
     def draw_hand_landmarks(self, frame, results):
         """Draw hand landmarks on frame"""
