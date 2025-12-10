@@ -6,7 +6,7 @@ import math
 
 
 class GestureDetector:
-    def __init__(self, smoothing_frames=5):
+    def __init__(self, smoothing_frames=10):
         self.mp_hands = mp.solutions.hands
         self.hands = self.mp_hands.Hands(
             static_image_mode=False,
@@ -19,16 +19,100 @@ class GestureDetector:
         # Smoothing buffer
         self.smoothing_frames = smoothing_frames
         self.position_buffer = deque(maxlen=smoothing_frames)
+        self.pen_position_buffer = deque(maxlen=smoothing_frames)
         
         # Custom gesture templates
         self.custom_gestures = {}
         self.gesture_sequence = deque(maxlen=10)
+        
+        # Pen detection settings
+        self.pen_color_range = {
+            'red': {
+                'lower1': np.array([0, 120, 70]),
+                'upper1': np.array([10, 255, 255]),
+                'lower2': np.array([170, 120, 70]),
+                'upper2': np.array([180, 255, 255])
+            },
+            'blue': {
+                'lower': np.array([100, 150, 50]),
+                'upper': np.array([140, 255, 255])
+            },
+            'green': {
+                'lower': np.array([40, 50, 50]),
+                'upper': np.array([80, 255, 255])
+            }
+        }
+        self.current_pen_color = 'red'  # Default pen color to track
         
     def detect_hands(self, frame):
         """Detect hands in frame and return landmarks"""
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = self.hands.process(rgb_frame)
         return results
+    
+    def detect_pen_tip(self, frame):
+        """
+        Detect pen/pencil tip using color tracking
+        Returns: (x, y) position and detection status
+        """
+        # Convert to HSV for better color detection
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        
+        # Get color range based on current pen color setting
+        if self.current_pen_color == 'red':
+            mask1 = cv2.inRange(hsv, self.pen_color_range['red']['lower1'], 
+                               self.pen_color_range['red']['upper1'])
+            mask2 = cv2.inRange(hsv, self.pen_color_range['red']['lower2'], 
+                               self.pen_color_range['red']['upper2'])
+            mask = mask1 + mask2
+        elif self.current_pen_color == 'blue':
+            mask = cv2.inRange(hsv, self.pen_color_range['blue']['lower'], 
+                              self.pen_color_range['blue']['upper'])
+        elif self.current_pen_color == 'green':
+            mask = cv2.inRange(hsv, self.pen_color_range['green']['lower'], 
+                              self.pen_color_range['green']['upper'])
+        else:
+            return None, False
+        
+        # Morphological operations to remove noise
+        kernel = np.ones((5, 5), np.uint8)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+        
+        # Find contours
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        
+        if contours:
+            # Find largest contour (assuming it's the pen tip)
+            largest_contour = max(contours, key=cv2.contourArea)
+            
+            # Filter out too small or too large areas
+            area = cv2.contourArea(largest_contour)
+            if 100 < area < 5000:  # Adjust these values based on pen size
+                # Get center point
+                M = cv2.moments(largest_contour)
+                if M["m00"] != 0:
+                    cx = int(M["m10"] / M["m00"])
+                    cy = int(M["m01"] / M["m00"])
+                    
+                    # Add to smoothing buffer
+                    self.pen_position_buffer.append((cx, cy))
+                    
+                    # Calculate smoothed position
+                    if len(self.pen_position_buffer) > 0:
+                        smooth_x = int(np.mean([pos[0] for pos in self.pen_position_buffer]))
+                        smooth_y = int(np.mean([pos[1] for pos in self.pen_position_buffer]))
+                        return (smooth_x, smooth_y), True
+        
+        return None, False
+    
+    def set_pen_color_tracking(self, color):
+        """Set which pen color to track (red, blue, green)"""
+        if color in self.pen_color_range:
+            self.current_pen_color = color
+            self.pen_position_buffer.clear()  # Clear buffer when switching
+            return True
+        return False
     
     def get_finger_states(self, landmarks):
         """

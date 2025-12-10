@@ -32,6 +32,10 @@ class VirtualDrawingApp:
         self.show_ribbon = True
         self.paused = False
         
+        # Pen mode
+        self.pen_mode = False
+        self.pen_color_tracking = 'red'  # red, blue, or green
+        
         # Pinch gesture state
         self.pinch_base_distance = None
         self.pinch_base_thickness = None
@@ -52,9 +56,13 @@ class VirtualDrawingApp:
         ribbon_height = 120
         cv2.rectangle(overlay, (0, 0), (w, ribbon_height), (50, 50, 50), -1)
         
-        # Status section with PAUSE indicator
+        # Status section with PAUSE/PEN indicator
         status_text = f"Gesture: {self.current_gesture}"
-        if self.paused:
+        if self.pen_mode:
+            status_text += f" [PEN MODE - {self.pen_color_tracking.upper()}]"
+            cv2.putText(overlay, status_text, (10, 30), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 165, 0), 2)
+        elif self.paused:
             status_text += " [PAUSED]"
             cv2.putText(overlay, status_text, (10, 30), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
@@ -96,30 +104,30 @@ class VirtualDrawingApp:
                    (brush_x, palette_y),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         
-        # Thickness indicator
+        # Thickness indicator with UP/DOWN arrows
         thickness_x = brush_x + 200
-        cv2.putText(overlay, f"Thickness: {self.canvas.brush_thickness}", 
+        cv2.putText(overlay, f"Thickness: {self.canvas.brush_thickness} [UP/DOWN]", 
                    (thickness_x, palette_y),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
         
         # Draw thickness preview circle
         cv2.circle(overlay, 
-                  (thickness_x + 150, palette_y - 5),
+                  (thickness_x + 250, palette_y - 5),
                   self.canvas.brush_thickness,
                   self.canvas.current_color, -1)
         cv2.circle(overlay, 
-                  (thickness_x + 150, palette_y - 5),
+                  (thickness_x + 250, palette_y - 5),
                   self.canvas.brush_thickness,
                   (255, 255, 255), 1)
         
         # Instructions line 2
         controls_y = palette_y + 40
-        cv2.putText(overlay, "NEW: [Index] Draw | [Fist] Erase All | [Palm] Pause | [2 Fingers] Undo | [3 Fingers] Brush | [Pinch] Size", 
+        cv2.putText(overlay, "Gestures: [Index] Draw | [Fist] Erase | [Palm] Pause | [2 Fingers] Undo | [3 Fingers] Brush | [Pinch] Size", 
                    (10, controls_y),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
         
-        # Keyboard instructions (T for Toggle Ribbon)
-        cv2.putText(overlay, "Keys: K (Keyboard) | G/B/R/Y/W/P/O/C (Colors) | S (Save) | Q (Quit) | H (Help) | T (Toggle Ribbon)",
+        # Keyboard instructions
+        cv2.putText(overlay, "Keys: P (Pen Mode) | UP/DOWN (Thickness) | K (Keyboard) | Colors: G/B/R/Y/W/P/O/C | S (Save) | Q (Quit) | H (Help) | T (Ribbon)",
                    (10, controls_y + 25),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
         
@@ -136,21 +144,23 @@ class VirtualDrawingApp:
         h, w, _ = frame.shape
         
         instructions = [
-            "GESTURES (UPDATED):",
+            "GESTURES:",
             "Index: Draw",
             "Fist: Erase ALL",
-            "Palm: Pause/Verify",
+            "Palm: Pause",
             "Two fingers: Undo",
             "Three fingers: Brush",
             "Pinch: Thickness",
             "",
             "KEYBOARD:",
+            "P: Pen/Pencil Mode",
+            "UP/DOWN: Thickness",
             "K: QWERTY Keyboard",
             "G/B/R/Y/W/P/O/C: Colors",
-            "S: Save (output folder)",
-            "Q: Quit app",
-            "H: Toggle help",
-            "T: Toggle ribbon",
+            "S: Save",
+            "Q: Quit",
+            "H: Help",
+            "T: Ribbon",
         ]
         
         # Draw semi-transparent background
@@ -168,8 +178,13 @@ class VirtualDrawingApp:
             font_scale = 0.5 if instruction.endswith(":") else 0.45
             font_thickness = 2 if instruction.endswith(":") else 1
             
-            cv2.putText(overlay, instruction, (w - panel_width + 10, y_offset),
-                       cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), font_thickness)
+            # Highlight pen mode
+            if "Pen/Pencil Mode" in instruction and self.pen_mode:
+                cv2.putText(overlay, instruction, (w - panel_width + 10, y_offset),
+                           cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 165, 0), 2)
+            else:
+                cv2.putText(overlay, instruction, (w - panel_width + 10, y_offset),
+                           cv2.FONT_HERSHEY_SIMPLEX, font_scale, (255, 255, 255), font_thickness)
             y_offset += 25
         
         # Blend overlay
@@ -195,25 +210,34 @@ class VirtualDrawingApp:
     
     def run(self):
         """Main application loop"""
-        print("=" * 60)
-        print("  VIRTUAL HAND-DRAWING APP - ENHANCED VERSION")
-        print("=" * 60)
-        print("\nNEW GESTURE CONTROLS:")
+        print("=" * 70)
+        print("  VIRTUAL HAND-DRAWING APP - ENHANCED VERSION WITH PEN MODE")
+        print("=" * 70)
+        print("\nGESTURE CONTROLS:")
         print("  - Index finger: Draw")
         print("  - Closed fist: ERASE ALL")
         print("  - Open palm: PAUSE/VERIFY")
         print("  - Two fingers: Undo")
         print("  - Three fingers: Change brush")
         print("  - Pinch: Adjust thickness")
-        print("\nKEYBOARD:")
+        print("\nKEYBOARD SHORTCUTS:")
+        print("  - P: Toggle Pen/Pencil Mode")
+        print("  - UP Arrow: Increase thickness (+1)")
+        print("  - DOWN Arrow: Decrease thickness (-1)")
         print("  - K: QWERTY Virtual Keyboard")
         print("  - G/B/R/Y/W/P/O/C: Colors")
         print("  - S: Save to output folder")
         print("  - Q: Quit")
         print("  - T: Toggle ribbon")
-        print("=" * 60)
+        print("  - H: Toggle help")
+        print("\nPEN MODE INSTRUCTIONS:")
+        print("  1. Use a pen/pencil with RED, BLUE, or GREEN colored tip/cap")
+        print("  2. Press P to enable Pen Mode")
+        print("  3. Point the colored tip at the camera to draw")
+        print("  4. Press 1/2/3 to switch tracking color (1=Red, 2=Blue, 3=Green)")
+        print("=" * 70)
         
-        self.notifications.add_notification("App Started! Press K for keyboard", 3.0, 'info')
+        self.notifications.add_notification("App Started! Press K for keyboard, P for pen mode", 4.0, 'info')
         
         while True:
             ret, frame = self.cap.read()
@@ -222,120 +246,154 @@ class VirtualDrawingApp:
             
             frame = cv2.flip(frame, 1)  # Mirror the frame
             
-            # Detect hands
-            results = self.detector.detect_hands(frame)
-            
-            if results.multi_hand_landmarks:
-                landmarks = results.multi_hand_landmarks[0].landmark
+            # PEN MODE
+            if self.pen_mode:
+                pen_pos, detected = self.detector.detect_pen_tip(frame)
                 
-                # Get finger states and detect gesture
-                fingers_up = self.detector.get_finger_states(landmarks)
-                self.current_gesture = self.detector.detect_gesture(fingers_up, landmarks, frame.shape)
-                
-                # Get index finger position (smoothed)
-                finger_pos = self.detector.get_index_finger_tip(
-                    landmarks, frame.shape
-                )
-                
-                # Check keyboard interaction
-                if self.keyboard.visible:
-                    hovered_key = self.keyboard.check_hover(finger_pos)
-                    
-                    # Click on keyboard key when drawing gesture over key
-                    if self.current_gesture == "DRAW" and hovered_key:
-                        clicked_key = self.keyboard.click_key(hovered_key)
-                        if clicked_key == 'SAVE':
-                            # Enter text placement mode
-                            if self.keyboard.get_text():
-                                self.text_placement_mode = True
-                                self.notifications.add_notification("Point where to place text and draw", 3.0, 'info')
-                        elif clicked_key == 'HIDE':
-                            self.keyboard.toggle_visibility()
-                            self.notifications.add_notification("Keyboard hidden", 1.5, 'info')
-                
-                # Text placement mode
-                elif self.text_placement_mode:
-                    if self.current_gesture == "DRAW":
-                        # Place text at finger position
-                        text = self.keyboard.get_text()
-                        if text:
-                            self.canvas.add_text(text, finger_pos)
-                            self.notifications.add_notification(f"Text placed: {text}", 2.0, 'success')
-                        self.text_placement_mode = False
-                        self.keyboard.clear_text()
-                
-                # Handle gestures (only if not interacting with keyboard)
-                elif not self.paused:
-                    if self.current_gesture == "DRAW":
+                if detected:
+                    # Draw with pen
+                    if not self.keyboard.visible:
                         if self.prev_gesture != "DRAW":
                             self.canvas.start_stroke()
-                        self.canvas.draw(finger_pos)
-                        # Draw visual indicator
-                        cv2.circle(frame, finger_pos, 8, self.canvas.current_color, -1)
-                        cv2.circle(frame, finger_pos, 10, (255, 255, 255), 2)
+                        self.canvas.draw(pen_pos)
+                        self.current_gesture = "DRAW"
+                        
+                        # Visual indicator for pen
+                        cv2.circle(frame, pen_pos, 15, (0, 255, 255), 3)
+                        cv2.circle(frame, pen_pos, 8, self.canvas.current_color, -1)
+                        cv2.putText(frame, "PEN", 
+                                   (pen_pos[0] + 20, pen_pos[1] - 10),
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
                     
-                    elif self.current_gesture == "ERASE_ALL":
-                        if self.prev_gesture != "ERASE_ALL":
-                            self.canvas.erase_all()
-                            self.notifications.add_notification("Canvas erased!", 2.0, 'warning')
+                    self.prev_gesture = "DRAW"
+                else:
+                    if self.prev_gesture == "DRAW":
+                        self.canvas.end_stroke()
+                    self.current_gesture = "NONE"
+                    self.prev_gesture = "NONE"
                     
-                    elif self.current_gesture == "PAUSE":
-                        if self.prev_gesture != "PAUSE":
-                            self.paused = not self.paused
-                            if self.paused:
-                                self.notifications.add_notification("PAUSED - Show palm again to resume", 2.0, 'info')
-                            else:
-                                self.notifications.add_notification("Resumed drawing", 1.5, 'success')
-                    
-                    elif self.current_gesture == "UNDO":
-                        if self.prev_gesture != "UNDO":
-                            self.canvas.undo()
-                            self.notifications.add_notification("Undo last stroke", 1.5, 'info')
-                    
-                    elif self.current_gesture == "THREE_FINGERS":
-                        if self.prev_gesture != "THREE_FINGERS":
-                            new_shape = self.canvas.next_brush_shape()
-                            self.notifications.add_notification(f"Brush: {new_shape}", 1.5, 'info')
-                    
-                    elif self.current_gesture == "PINCH":
-                        thumb_pos, index_pos = self.handle_pinch_gesture(landmarks, frame.shape)
-                        # Draw line between thumb and index
-                        cv2.line(frame, thumb_pos, index_pos, (255, 0, 255), 2)
-                        cv2.circle(frame, thumb_pos, 8, (255, 0, 255), -1)
-                        cv2.circle(frame, index_pos, 8, (255, 0, 255), -1)
-                    
-                    else:
-                        if self.prev_gesture == "DRAW":
-                            self.canvas.end_stroke()
-                        if self.prev_gesture == "PINCH":
-                            self.pinch_base_distance = None
-                            self.pinch_base_thickness = None
-                
-                # Pause mode - show indicator
-                if self.paused:
-                    if self.current_gesture == "PAUSE":
-                        if self.prev_gesture != "PAUSE":
-                            self.paused = False
-                            self.notifications.add_notification("Resumed!", 1.5, 'success')
-                    
-                    # Draw pause indicator
-                    cv2.circle(frame, finger_pos, 30, (0, 165, 255), 5)
-                    cv2.putText(frame, "PAUSED", 
-                               (finger_pos[0] - 50, finger_pos[1] - 40),
-                               cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
-                
-                # Draw hand landmarks
-                frame = self.detector.draw_hand_landmarks(frame, results)
-                
-                self.prev_gesture = self.current_gesture
+                    # Show "Point pen here" message
+                    h, w, _ = frame.shape
+                    cv2.putText(frame, f"Point {self.pen_color_tracking.upper()} pen/pencil tip to camera", 
+                               (w//2 - 250, h//2),
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+            
+            # HAND MODE
             else:
-                self.current_gesture = "NONE"
-                if self.prev_gesture == "DRAW":
-                    self.canvas.end_stroke()
-                if self.prev_gesture == "PINCH":
-                    self.pinch_base_distance = None
-                    self.pinch_base_thickness = None
-                self.prev_gesture = "NONE"
+                # Detect hands
+                results = self.detector.detect_hands(frame)
+                
+                if results.multi_hand_landmarks:
+                    landmarks = results.multi_hand_landmarks[0].landmark
+                    
+                    # Get finger states and detect gesture
+                    fingers_up = self.detector.get_finger_states(landmarks)
+                    self.current_gesture = self.detector.detect_gesture(fingers_up, landmarks, frame.shape)
+                    
+                    # Get index finger position (smoothed)
+                    finger_pos = self.detector.get_index_finger_tip(
+                        landmarks, frame.shape
+                    )
+                    
+                    # Check keyboard interaction
+                    if self.keyboard.visible:
+                        hovered_key = self.keyboard.check_hover(finger_pos)
+                        
+                        # Click on keyboard key when drawing gesture over key
+                        if self.current_gesture == "DRAW" and hovered_key:
+                            clicked_key = self.keyboard.click_key(hovered_key)
+                            if clicked_key == 'SAVE':
+                                # Enter text placement mode
+                                if self.keyboard.get_text():
+                                    self.text_placement_mode = True
+                                    self.notifications.add_notification("Point where to place text and draw", 3.0, 'info')
+                            elif clicked_key == 'HIDE':
+                                self.keyboard.toggle_visibility()
+                                self.notifications.add_notification("Keyboard hidden", 1.5, 'info')
+                    
+                    # Text placement mode
+                    elif self.text_placement_mode:
+                        if self.current_gesture == "DRAW":
+                            # Place text at finger position
+                            text = self.keyboard.get_text()
+                            if text:
+                                self.canvas.add_text(text, finger_pos)
+                                self.notifications.add_notification(f"Text placed: {text}", 2.0, 'success')
+                            self.text_placement_mode = False
+                            self.keyboard.clear_text()
+                    
+                    # Handle gestures (only if not interacting with keyboard)
+                    elif not self.paused:
+                        if self.current_gesture == "DRAW":
+                            if self.prev_gesture != "DRAW":
+                                self.canvas.start_stroke()
+                            self.canvas.draw(finger_pos)
+                            # Draw visual indicator
+                            cv2.circle(frame, finger_pos, 8, self.canvas.current_color, -1)
+                            cv2.circle(frame, finger_pos, 10, (255, 255, 255), 2)
+                        
+                        elif self.current_gesture == "ERASE_ALL":
+                            if self.prev_gesture != "ERASE_ALL":
+                                self.canvas.erase_all()
+                                self.notifications.add_notification("Canvas erased!", 2.0, 'warning')
+                        
+                        elif self.current_gesture == "PAUSE":
+                            if self.prev_gesture != "PAUSE":
+                                self.paused = not self.paused
+                                if self.paused:
+                                    self.notifications.add_notification("PAUSED - Show palm again to resume", 2.0, 'info')
+                                else:
+                                    self.notifications.add_notification("Resumed drawing", 1.5, 'success')
+                        
+                        elif self.current_gesture == "UNDO":
+                            if self.prev_gesture != "UNDO":
+                                self.canvas.undo()
+                                self.notifications.add_notification("Undo last stroke", 1.5, 'info')
+                        
+                        elif self.current_gesture == "THREE_FINGERS":
+                            if self.prev_gesture != "THREE_FINGERS":
+                                new_shape = self.canvas.next_brush_shape()
+                                self.notifications.add_notification(f"Brush: {new_shape}", 1.5, 'info')
+                        
+                        elif self.current_gesture == "PINCH":
+                            thumb_pos, index_pos = self.handle_pinch_gesture(landmarks, frame.shape)
+                            # Draw line between thumb and index
+                            cv2.line(frame, thumb_pos, index_pos, (255, 0, 255), 2)
+                            cv2.circle(frame, thumb_pos, 8, (255, 0, 255), -1)
+                            cv2.circle(frame, index_pos, 8, (255, 0, 255), -1)
+                        
+                        else:
+                            if self.prev_gesture == "DRAW":
+                                self.canvas.end_stroke()
+                            if self.prev_gesture == "PINCH":
+                                self.pinch_base_distance = None
+                                self.pinch_base_thickness = None
+                    
+                    # Pause mode - show indicator
+                    if self.paused:
+                        if self.current_gesture == "PAUSE":
+                            if self.prev_gesture != "PAUSE":
+                                self.paused = False
+                                self.notifications.add_notification("Resumed!", 1.5, 'success')
+                        
+                        # Draw pause indicator
+                        cv2.circle(frame, finger_pos, 30, (0, 165, 255), 5)
+                        cv2.putText(frame, "PAUSED", 
+                                   (finger_pos[0] - 50, finger_pos[1] - 40),
+                                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2)
+                    
+                    # Draw hand landmarks
+                    frame = self.detector.draw_hand_landmarks(frame, results)
+                    
+                    self.prev_gesture = self.current_gesture
+                else:
+                    self.current_gesture = "NONE"
+                    if self.prev_gesture == "DRAW":
+                        self.canvas.end_stroke()
+                    if self.prev_gesture == "PINCH":
+                        self.pinch_base_distance = None
+                        self.pinch_base_thickness = None
+                    self.prev_gesture = "NONE"
             
             # Update keyboard cooldown
             self.keyboard.update_cooldown()
@@ -353,7 +411,7 @@ class VirtualDrawingApp:
             # Display
             cv2.imshow("Virtual Hand-Drawing", frame)
             
-            # SLOWED DOWN: Changed from 1ms to 30ms delay
+            # SLOWED DOWN: Changed from 1ms to 10ms delay
             key = cv2.waitKey(10) & 0xFF
             
             if key == ord('q'):
@@ -373,12 +431,45 @@ class VirtualDrawingApp:
                 status = "shown" if self.show_ribbon else "hidden"
                 self.notifications.add_notification(f"Ribbon {status}", 1.0, 'info')
             elif key == ord('k'):
-                was_visible = self.keyboard.visible
                 self.keyboard.toggle_visibility()
                 if self.keyboard.visible:
                     self.notifications.add_notification("QWERTY Keyboard opened", 2.0, 'info')
                 else:
                     self.notifications.add_notification("Keyboard closed", 1.0, 'info')
+            elif key == ord('p'):
+                # Toggle pen mode
+                self.pen_mode = not self.pen_mode
+                mode = "PEN" if self.pen_mode else "HAND"
+                self.notifications.add_notification(f"Mode: {mode} (Tracking: {self.pen_color_tracking.upper()})", 3.0, 'info')
+                print(f"\nMode switched to: {mode}")
+                if self.pen_mode:
+                    print(f"Point {self.pen_color_tracking.upper()} colored pen/pencil tip to camera")
+                    print("Press 1/2/3 to switch color tracking (1=Red, 2=Blue, 3=Green)")
+            elif key == ord('1'):
+                # Track red pen
+                self.pen_color_tracking = 'red'
+                self.detector.set_pen_color_tracking('red')
+                self.notifications.add_notification("Pen tracking: RED", 2.0, 'info')
+            elif key == ord('2'):
+                # Track blue pen
+                self.pen_color_tracking = 'blue'
+                self.detector.set_pen_color_tracking('blue')
+                self.notifications.add_notification("Pen tracking: BLUE", 2.0, 'info')
+            elif key == ord('3'):
+                # Track green pen
+                self.pen_color_tracking = 'green'
+                self.detector.set_pen_color_tracking('green')
+                self.notifications.add_notification("Pen tracking: GREEN", 2.0, 'info')
+            elif key == 82 or key == 0:  # UP Arrow (key code 82 on Windows, 0 on some systems)
+                # Increase thickness
+                new_thickness = self.canvas.brush_thickness + 1
+                self.canvas.set_thickness(new_thickness)
+                self.notifications.add_notification(f"Thickness: {self.canvas.brush_thickness}", 1.0, 'info')
+            elif key == 84 or key == 1:  # DOWN Arrow (key code 84 on Windows, 1 on some systems)
+                # Decrease thickness
+                new_thickness = self.canvas.brush_thickness - 1
+                self.canvas.set_thickness(new_thickness)
+                self.notifications.add_notification(f"Thickness: {self.canvas.brush_thickness}", 1.0, 'info')
             else:
                 # Color change keys
                 if chr(key) in self.canvas.colors:
