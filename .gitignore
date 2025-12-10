@@ -1,3 +1,4 @@
+# Virtual Environment
 venv/
 env/
 
@@ -13,9 +14,10 @@ __pycache__/
 .idea/
 *.swp
 
-# Output files
+# Output files - Don't push user drawings
 output/*.png
 output/*.jpg
+!output/.gitkeep
 
 # OS
 .DS_Store

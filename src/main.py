@@ -18,7 +18,8 @@ class VirtualDrawingApp:
         
         h, w, _ = frame.shape
         
-        self.detector = GestureDetector(smoothing_frames=5)
+        # SLOWED DOWN: Increased smoothing from 5 to 10 frames
+        self.detector = GestureDetector(smoothing_frames=10)
         self.canvas = DrawingCanvas(w, h)
         self.keyboard = VirtualKeyboard(w, h)
         self.notifications = NotificationSystem()
@@ -117,7 +118,7 @@ class VirtualDrawingApp:
                    (10, controls_y),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
         
-        # Keyboard instructions
+        # Keyboard instructions (T for Toggle Ribbon)
         cv2.putText(overlay, "Keys: K (Keyboard) | G/B/R/Y/W/P/O/C (Colors) | S (Save) | Q (Quit) | H (Help) | T (Toggle Ribbon)",
                    (10, controls_y + 25),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.45, (200, 200, 200), 1)
@@ -209,6 +210,7 @@ class VirtualDrawingApp:
         print("  - G/B/R/Y/W/P/O/C: Colors")
         print("  - S: Save to output folder")
         print("  - Q: Quit")
+        print("  - T: Toggle ribbon")
         print("=" * 60)
         
         self.notifications.add_notification("App Started! Press K for keyboard", 3.0, 'info')
@@ -351,8 +353,8 @@ class VirtualDrawingApp:
             # Display
             cv2.imshow("Virtual Hand-Drawing", frame)
             
-            # Handle key presses
-            key = cv2.waitKey(1) & 0xFF
+            # SLOWED DOWN: Changed from 1ms to 30ms delay
+            key = cv2.waitKey(10) & 0xFF
             
             if key == ord('q'):
                 self.notifications.add_notification("Exiting application...", 1.0, 'info')
@@ -366,7 +368,7 @@ class VirtualDrawingApp:
                 self.show_instructions = not self.show_instructions
                 status = "shown" if self.show_instructions else "hidden"
                 self.notifications.add_notification(f"Help {status}", 1.0, 'info')
-            elif key == ord('t'):
+            elif key == ord('t'):  # Changed from 'r' to 't'
                 self.show_ribbon = not self.show_ribbon
                 status = "shown" if self.show_ribbon else "hidden"
                 self.notifications.add_notification(f"Ribbon {status}", 1.0, 'info')
