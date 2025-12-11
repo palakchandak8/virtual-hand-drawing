@@ -6,28 +6,38 @@
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![MediaPipe](https://img.shields.io/badge/MediaPipe-Hand%20Tracking-orange.svg)
 
-**Draw in mid-air using hand gestures! Control your canvas with intuitive hand movements tracked through your webcam.**
+*Draw in mid-air using hand gestures! Control your canvas with intuitive hand movements tracked through your webcam.*
+
+
+Pen/Pencil Mode • Virtual Keyboard • Multiple Brush Shapes • Smart Notifications • Enhanced UI Ribbon • Pinch Thickness Control • Pause Mode • Improved Smoothing • 8-Color Palette • Better Undo System
 
 </div>
 
----
 
+---
 ## ✨ Features
 
-### 🖐️ Gesture Controls
+### 🖐 Gesture Controls
 
 | Gesture | Visual | Function |
 |---------|--------|----------|
-| Index Finger | ☝️ | Drawing mode |
-| Closed Fist | ✊ | Eraser mode |
-| Open Palm | 🤚 | Clear canvas |
-| Two Fingers | ✌️ | Undo action |
+| Index Finger | ☝ | Drawing mode |
+| Closed Fist | ✊ | Erase entire canvas |
+| Open Palm | 🤚 | Pause/Resume |
+| Two Fingers | ✌ | Undo action |
+| Three Fingers | 🤟 | Change brush shape |
+| Pinch | 🤏 | Adjust brush thickness |
 
 ### 🎨 Additional Features
-- **Color Palette**: Quick color switching with G/B/R/Y/W/P keys
-- **Smoothing**: Jitter-free drawing with 5-frame averaging
-- **Export**: Save your masterpiece as PNG
-
+- *4 Brush Shapes*: Normal, Circle, Square, Spray paint
+- *8 Color Palette*: G/B/R/Y/W/P/O/C keys
+- *Thickness Control*: UP/DOWN arrows or pinch gesture (1-50px)
+- *Smoothing*: 10-frame motion averaging
+- *Pen/Pencil Mode*: Draw with physical colored pens (Red/Blue/Green)
+- *Virtual Keyboard*: QWERTY keyboard for text annotations
+- *Smart Notifications*: Real-time feedback system
+- *Interactive UI*: Ribbon panel and side instructions (toggle with H/T keys)
+- *Export*: Save as PNG with timestamp
 ---
 
 ## 🚀 Quick Start
@@ -52,25 +62,38 @@ python src/main.py
 
 ## 🎮 Controls
 
+### ⌨️ Keyboard Shortcuts
+
 | Key | Action |
 |-----|--------|
-| Q | Quit |
-| S | Save drawing |
-| H | Toggle help |
-| G/B/R/Y/W/P | Change color |
+| **Q** | Quit |
+| **S** | Save PNG |
+| **H** | Toggle Help |
+| **T** | Toggle Ribbon |
+| **K** | Virtual Keyboard |
+| **P** | Pen / Hand Mode |
+| **↑ / ↓** | Brush Size + / - |
+| **G B R Y W P O C** | Color Select |
+| **1 2 3** | Track Red / Blue / Green Pen |
+
 
 ---
 
 ## 📋 Requirements
 
 - Python 3.8+
-- Webcam
-- See `requirements.txt` for packages
+- Working webcam (built-in or USB)
+- See requirements.txt for packages
+- 4GB RAM minimum
 
----
+### Python Dependencies
+```
+opencv-python==4.8.1.78
+mediapipe==0.10.8
+numpy==1.24.3
+```
 
-## 🏗️ Architecture
-
+## 🏗 Architecture
 ```
 ┌─────────────┐
 │   Camera    │
@@ -102,42 +125,60 @@ python src/main.py
 └─────────────┘
 ```
 
-### Core Components
-- **Capture Module**: Handles webcam input and frame processing
-- **Hand Detector**: MediaPipe-based landmark detection (21 points per hand)
-- **Gesture Recognizer**: Classifies hand poses into drawing commands
-- **Canvas Manager**: Maintains drawing state and rendering pipeline
-- **UI Controller**: Processes keyboard input and display updates
 
+
+### Core Components
+- *Capture Module*: Handles webcam input and frame processing
+- *Hand Detector* (gesture_detector.py): MediaPipe-based landmark detection (21 points per hand)
+- *Gesture Recognizer*: Classifies hand poses into drawing commands (6 unique gestures)
+- *Canvas Manager* (drawing_canvas.py): Maintains drawing state, brush shapes, and rendering pipeline
+- *Virtual Keyboard* (virtual_keyboard.py): QWERTY keyboard interface for text input
+- *Notification System* (notification_system.py): Real-time feedback and status messages
+- *Pen Tracking*: HSV color-based detection for physical pen/pencil drawing
+- *UI Controller*: Processes keyboard input and display updates
 ---
 
 ## 📁 Project Structure
-
 ```
+
 virtual-hand-drawing/
 ├── src/
-│   ├── main.py              # Application entry point
-│   ├── hand_detector.py     # Hand tracking logic
-│   ├── gesture_recognizer.py# Gesture classification
-│   └── canvas.py            # Drawing canvas manager
-├── requirements.txt         # Python dependencies
-├── README.md               # This file
-├── LICENSE                 # MIT License
-└── examples/               # Sample drawings
-```
+│   ├── main.py                # Application entry point
+│   ├── gesture_detector.py    # Hand tracking & pen detection logic
+│   ├── drawing_canvas.py      # Drawing canvas manager with brush shapes
+│   ├── virtual_keyboard.py    # QWERTY keyboard interface
+│   └── notification_system.py # Notification display system
+├── requirements.txt           # Python dependencies
+├── README.md                  # This file
+├── LICENSE                    # MIT License
+└── output/                    # Saved drawings folder (auto-created)
 
+```
 ---
 
 ## 🎯 Usage Tips
+```
+### Hand Mode
+- Good lighting • 1–2 ft distance • Slow movements • 2–3 sec detect • Plain background
 
-1. **Optimal Lighting**: Use well-lit environments for better hand detection
-2. **Hand Position**: Keep hand 1-2 feet from camera for best tracking
-3. **Steady Movements**: Draw slowly for smoother lines
-4. **Calibration**: Allow 2-3 seconds for initial hand detection
-5. **Background**: Plain backgrounds improve tracking accuracy
+### Pen Mode
+- Red/Blue/Green tip • P to toggle • Point to draw • 1/2/3 to switch color
 
----
+### Virtual Keyboard
+- K to open • Point to type • SPACE / DEL / CLEAR / SAVE / HIDE • After SAVE: point to place text
 
+### Brush Controls
+- Shapes: Normal / Circle / Square / Spray
+- Thickness: Pinch or UP/DOWN
+- Colors: G B R Y W P O C
+- Ribbon shows preview
+
+## 🎨 Brush Shapes
+Normal • Circle • Square • Spray
+
+## 💡 Pro Tips
+Pause (open palm) • Multiple undo (two-finger) • Save (S) • Toggle UI: T (ribbon), H (help)
+```
 ## 🤝 Contributing
 
 Contributions are welcome! Here's how you can help:
@@ -147,6 +188,7 @@ Contributions are welcome! Here's how you can help:
 3. Commit changes (`git commit -m 'Add AmazingFeature'`)
 4. Push to branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
+
 
 ---
 
@@ -166,10 +208,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
 
-**Made with ❤️ by [Palak Chandak](https://github.com/palakchandak8)**
+Made with ❤ by   [![GitHub](https://img.shields.io/badge/GitHub-palakchandak8-181717?style=flat-square&logo=github)](https://github.com/palakchandak8) 
 
-[![GitHub](https://img.shields.io/badge/GitHub-palakchandak8-181717?style=flat-square&logo=github)](https://github.com/palakchandak8)
-
-⭐ **Star this repo if you found it useful!**
+⭐ *Star this repo if you found it useful!*
 
 </div>
